@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Часть AppCore: on_find / on_save / resolve."""
+"""Часть AppCore: AppCoreBMixin — on_find, on_save, resolve numbers."""
 from typing import Optional, List, Dict, Any
 import logging
 
@@ -44,12 +44,15 @@ class AppCoreBMixin:
                 if dpg.does_item_exist("spec_selector"):
                     dpg.set_value("spec_selector", "")
         else:
-            if self.nk_all:
-                first = self.nk_all[0]
+            if self._nk_list:
+                first = self._nk_list[0]
                 if dpg.does_item_exist("spec_selector"):
                     dpg.set_value("spec_selector",
                                   self._nk_full_label(first))
-                self.nom_id = first.get('номенклатура')
+                nid = first.get("номенклатура")
+                if nid is None:
+                    nid = first.get("nom_id")
+                self.nom_id = nid
 
         try:
             self.specs = (db.get_specs(self.nom_id)
@@ -129,7 +132,9 @@ class AppCoreBMixin:
             self._load_nom_id()
             return generate_range(*rng)
 
-        raise ValueError("Неверный формат. Штрих-код — 5+ цифр; МСК — xx-xxxx.")
+        raise ValueError(
+            "Неверный формат. Штрих-код — 5+ цифр; МСК — xx-xxxx."
+        )
 
     def _load_nom_id(self):
         self.nom_id = None
