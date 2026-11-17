@@ -5,7 +5,9 @@ import logging
 
 import dearpygui.dearpygui as dpg
 
-from gui.constants import parse_units
+from gui.constants import (
+    parse_units, OPEN_CIRCUIT_THRESHOLD, NORM_ABSENT, OVERLOAD_THRESHOLD,
+)
 import relay_switch_m as rsm
 
 log = logging.getLogger("app")
@@ -32,7 +34,7 @@ class TableRenderBMixin:
                 out.append(p)
                 continue
 
-            if abs(v_base) >= self._OVERLOAD_THRESHOLD:
+            if abs(v_base) >= OVERLOAD_THRESHOLD:
                 out.append("OPEN")
                 continue
 
@@ -51,12 +53,12 @@ class TableRenderBMixin:
             except (TypeError, ValueError):
                 nd = None
 
-            if base == 'Ohm' and v_base > self._OPEN_CIRCUIT_THRESHOLD:
+            if base == 'Ohm' and v_base > OPEN_CIRCUIT_THRESHOLD:
                 pmax = spec.get('Par_max')
                 pmin = spec.get('Par_min')
                 bound = None
                 for cand in (pmax, pmin):
-                    if cand is not None and cand != self._NORM_ABSENT:
+                    if cand is not None and cand != NORM_ABSENT:
                         bound = cand
                         break
                 if bound is not None:
@@ -66,7 +68,9 @@ class TableRenderBMixin:
                 continue
 
             display = v_base / mult if mult else v_base
-            formatted = f"{display:.{nd}f}" if nd is not None else f"{display:.6g}"
+            formatted = (
+                f"{display:.{nd}f}" if nd is not None else f"{display:.6g}"
+            )
             if units:
                 formatted = f"{formatted} {units}"
             out.append(formatted)
@@ -143,7 +147,9 @@ class TableRenderBMixin:
                 out.append(v_str)
                 continue
             display = v_base / mult if mult else v_base
-            formatted = f"{display:.{nd}f}" if nd is not None else f"{display:.6g}"
+            formatted = (
+                f"{display:.{nd}f}" if nd is not None else f"{display:.6g}"
+            )
             if units:
                 formatted = f"{formatted} {units}"
             out.append(formatted)
