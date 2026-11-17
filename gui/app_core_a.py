@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Часть AppCore: AppCoreAMixin."""
+"""Часть AppCore: AppCoreAMixin — init, build, connect, NK selector."""
 from typing import Optional, List, Dict, Any
 import logging
 import queue
@@ -7,7 +7,6 @@ import queue
 import dearpygui.dearpygui as dpg
 
 import db_helper as db
-import run_picker
 from gui.constants import (
     FONT_NAME, NUM_RE, BARCODE_RE, MSK_RE,
     generate_range, OPEN_CIRCUIT_THRESHOLD, NORM_ABSENT, OVERLOAD_THRESHOLD,
@@ -36,16 +35,11 @@ class AppCoreAMixin:
         self.info_tag = "info_text"
         self._pdf_font_name: Optional[str] = None
         self.column_names: Dict[int, str] = {}
-
-        # Сопротивление выше этого значения считаем «обрывом» и в таблице
-        # показываем как «Обрыв» вместо сырого числа.
         self.open_circuit_threshold = OPEN_CIRCUIT_THRESHOLD
-
-        # Текущий выбранный замер (run_id) и флаг legacy-режима
         self.current_run_id: Optional[int] = None
         self.current_run_legacy: bool = False
-
         self._nk_list: List[Dict[str, Any]] = []
+        self._row_registry_tags: List[str] = []
 
     def build(self):
         with dpg.window(tag=self.win_tag, label="RT - Montage Control",
@@ -71,7 +65,7 @@ class AppCoreAMixin:
                 dpg.add_text("", tag=self.info_tag)
                 dpg.add_spacer(width=20)
                 dpg.add_text("НК:")
-                dpg.add_combo(tag="spec_selector", items=[], width=220,
+                dpg.add_combo(tag="spec_selector", items=[], width=280,
                               callback=self._on_spec_selector_changed)
 
             dpg.add_separator()
@@ -86,9 +80,11 @@ class AppCoreAMixin:
             dpg.configure_item(self.status_tag, color=color)
 
     def _nk_full_label(self, item: Dict[str, Any]) -> str:
-        name = (item.get("name") or "").strip()
-        msk = (item.get("msk") or "").strip()
-        nom = item.get("nom_id")
+        name = (item.get("наименование") or item.get("name") or "").strip()
+        msk = (item.get("РКНомер") or item.get("msk") or "").strip()
+        nom = item.get("номенклатура")
+        if nom is None:
+            nom = item.get("nom_id")
         parts = []
         if name:
             parts.append(name)
@@ -100,25 +96,29 @@ class AppCoreAMixin:
 
     def _load_nk_list(self):
         try:
-            self._nk_list = db.get_nk_list() or []
+            self._nk_list = db.get_all_nomeklatura() or []
         except Exception:
             log.exception("load nk list")
             self._nk_list = []
         labels = [self._nk_full_label(it) for it in self._nk_list]
         if dpg.does_item_exist("spec_selector"):
             dpg.configure_item("spec_selector", items=labels)
-            if labels:
+            if labels and not dpg.get_value("spec_selector"):
                 dpg.set_value("spec_selector", labels[0])
 
-    def _select_nk_by_nom_id(self, nom_id: Optional[int]):
+    def _select_nk_by_nom_id(self, nom_id: Optional[int]) -> bool:
         if nom_id is None or not self._nk_list:
-            return
+            return False
         for it in self._nk_list:
-            if it.get("nom_id") == nom_id:
+            nid = it.get("номенклатура")
+            if nid is None:
+                nid = it.get("nom_id")
+            if nid == nom_id:
                 label = self._nk_full_label(it)
                 if dpg.does_item_exist("spec_selector"):
                     dpg.set_value("spec_selector", label)
-                return
+                return True
+        return False
 
     def _on_spec_selector_changed(self, sender, app_data):
         label = app_data
@@ -128,20 +128,22 @@ class AppCoreAMixin:
                 return
 
     def _apply_spec_choice(self, item: Dict[str, Any]):
-        nom = item.get("nom_id")
+        nom = item.get("номенклатура")
+        if nom is None:
+            nom = item.get("nom_id")
         if nom is None:
             return
         self.nom_id = nom
-        self.msk_real = item.get("msk") or self.msk_real
         self._update_info_text()
         try:
-            self.specs = db.get_specs_by_nom_id(nom) or []
+            self.specs = db.get_specs(nom) or []
             self.column_names = db.get_column_names(nom) or {}
         except Exception:
             log.exception("apply spec")
             self.specs = []
             self.column_names = {}
-        self._rebuild_table()
+        if self.rows:
+            self._rebuild_table()
 
     def _current_spec_name(self) -> str:
         if dpg.does_item_exist("spec_selector"):
