@@ -5,7 +5,7 @@ import logging
 
 import dearpygui.dearpygui as dpg
 
-from gui.constants import parse_units
+from gui.constants import parse_units, NORM_ABSENT
 
 log = logging.getLogger("app")
 
@@ -56,7 +56,7 @@ class TableCheckAMixin:
                 if raw is None:
                     continue
                 parts_f = []
-                for p in raw.split('/'):
+                for p in str(raw).split('/'):
                     p = p.strip()
                     if not p:
                         continue
@@ -84,7 +84,7 @@ class TableCheckAMixin:
         def _to_base(x):
             if x is None:
                 return None
-            if x == self._NORM_ABSENT:
+            if x == NORM_ABSENT:
                 return None
             return x * mult
 
