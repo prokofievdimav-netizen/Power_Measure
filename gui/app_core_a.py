@@ -81,7 +81,7 @@ class AppCoreAMixin:
 
     def _nk_full_label(self, item: Dict[str, Any]) -> str:
         name = (item.get("наименование") or item.get("name") or "").strip()
-        msk = (item.get("РКНомер") or item.get("msk") or "").strip()
+        msk = str(item.get("РКНомер") or item.get("msk") or "").strip()
         nom = item.get("номенклатура")
         if nom is None:
             nom = item.get("nom_id")
